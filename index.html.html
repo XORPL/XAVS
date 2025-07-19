@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Corazón Interactivo - XAVS®</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #000000;
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            display: block;
+        }
+
+        #message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #ff3366;
+            font-size: 1.2em;
+            font-weight: bold;
+            display: none;
+            pointer-events: none;
+            z-index: 10;
+            text-shadow: 0 0 30px #ff3366, 0 0 60px #ff3366;
+            animation: messageAppear 0.6s ease-out;
+        }
+
+        #watermark {
+            position: absolute;
+            bottom: 15px;
+            right: 15px;
+            color: rgba(255, 255, 255, 0.3);
+            font-size: 10px;
+            font-weight: 300;
+            letter-spacing: 1px;
+            z-index: 5;
+            pointer-events: none;
+            text-shadow: 0 0 5px rgba(255, 255, 255, 0.2);
+        }
+
+        @keyframes messageAppear {
+            0% { 
+                transform: translate(-50%, -50%) scale(0.3);
+                opacity: 0;
+            }
+            50% {
+                transform: translate(-50%, -50%) scale(1.2);
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="bgCanvas"></canvas>
+    <canvas id="heartCanvas"></canvas>
+    
+    <div id="message">💖 Te Amo 💖</div>
+    <div id="watermark">XAVS®</div>
+
+    <script>
+        // Configuración optimizada
+        const heartCanvas = document.getElementById("heartCanvas");
+        const bgCanvas = document.getElementById("bgCanvas");
+        const ctx = heartCanvas.getContext("2d");
+        const bgCtx = bgCanvas.getContext("2d");
+        const message = document.getElementById("message");
+
+        // Variables globales optimizadas
+        let particles = [];
+        let fallingDots = [];
+        let sparkles = [];
+        let animationId;
+        
+        // Control de rendimiento
+        const MAX_PARTICLES = 60; // Reducido para mejor rendimiento
+        const MAX_FALLING_DOTS = 50; // Reducido
+        const MAX_SPARKLES = 8; // Limitado
+        
+        function resizeCanvas() {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            
+            heartCanvas.width = width;
+            heartCanvas.height = height;
+            bgCanvas.width = width;
+            bgCanvas.height = height;
+            
+            createHeartParticles();
+            createFallingDots();
+        }
+
+        function createHeartParticles() {
+            particles = [];
+            const centerX = heartCanvas.width / 2;
+            const centerY = heartCanvas.height / 2;
+            const scale = Math.min(window.innerWidth, window.innerHeight) / 60;
+            
+            // Menos partículas pero con mejor distribución
+            for (let t = 0; t < Math.PI * 2; t += 0.1) {
+                if (particles.length >= MAX_PARTICLES) break;
+                
+                let x = 16 * Math.pow(Math.sin(t), 3);
+                let y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
+                
+                particles.push({
+                    x: centerX + x * scale,
+                    y: centerY - y * scale,
+                    originalX: centerX + x * scale,
+                    originalY: centerY - y * scale,
+                    velocityX: 0,
+                    velocityY: 0,
+                    size: Math.random() * 2 + 1.5,
+                    pulseOffset: Math.random() * Math.PI * 2
+                });
+            }
+        }
+
+        function createFallingDots() {
+            fallingDots = [];
+            for (let i = 0; i < MAX_FALLING_DOTS; i++) {
+                fallingDots.push({
+                    x: Math.random() * bgCanvas.width,
+                    y: Math.random() * bgCanvas.height,
+                    radius: Math.random() * 1.5 + 0.8,
+                    speed: Math.random() * 1 + 0.3,
+                    opacity: Math.random() * 0.4 + 0.2
+                });
+            }
+        }
+
+        // Optimizado: usar offscreen canvas para mejor rendimiento
+        function drawBackground() {
+            bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
+            
+            // Dibujar menos puntos y con menos efectos
+            fallingDots.forEach(dot => {
+                bgCtx.globalAlpha = dot.opacity;
+                bgCtx.fillStyle = '#ffffff';
+                bgCtx.beginPath();
+                bgCtx.arc(dot.x, dot.y, dot.radius, 0, Math.PI * 2);
+                bgCtx.fill();
+                
+                dot.y += dot.speed;
+                if (dot.y > bgCanvas.height + 10) {
+                    dot.y = -10;
+                    dot.x = Math.random() * bgCanvas.width;
+                }
+            });
+            bgCtx.globalAlpha = 1;
+        }
+
+        function drawHeart(mouseX, mouseY, time) {
+            ctx.clearRect(0, 0, heartCanvas.width, heartCanvas.height);
+            
+            particles.forEach(particle => {
+                // Interacción con mouse optimizada
+                if (mouseX !== null && mouseY !== null) {
+                    const dx = particle.x - mouseX;
+                    const dy = particle.y - mouseY;
+                    const distanceSquared = dx * dx + dy * dy;
+                    
+                    if (distanceSquared < 14400) { // 120^2 para evitar sqrt
+                        const distance = Math.sqrt(distanceSquared);
+                        const angle = Math.atan2(dy, dx);
+                        const force = (120 - distance) / 120 * 1.2;
+                        particle.velocityX += Math.cos(angle) * force;
+                        particle.velocityY += Math.sin(angle) * force;
+                    }
+                }
+                
+                // Física optimizada
+                particle.x += particle.velocityX;
+                particle.y += particle.velocityY;
+                particle.velocityX *= 0.97;
+                particle.velocityY *= 0.97;
+                
+                const returnForceX = (particle.originalX - particle.x) * 0.025;
+                const returnForceY = (particle.originalY - particle.y) * 0.025;
+                particle.velocityX += returnForceX;
+                particle.velocityY += returnForceY;
+                
+                // Pulso menos intensivo
+                const pulse = 1 + Math.sin(time * 0.002 + particle.pulseOffset) * 0.08;
+                
+                // Dibujo optimizado sin sombras excesivas
+                ctx.fillStyle = '#ff3366';
+                ctx.shadowColor = '#ff3366';
+                ctx.shadowBlur = 8;
+                ctx.beginPath();
+                ctx.arc(particle.x, particle.y, particle.size * pulse, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            
+            ctx.shadowBlur = 0; // Limpiar sombra
+            drawSparkles();
+        }
+
+        function drawSparkles() {
+            sparkles.forEach((sparkle, index) => {
+                ctx.save();
+                ctx.globalAlpha = sparkle.opacity;
+                ctx.font = `${sparkle.size}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#ffffff';
+                
+                ctx.translate(sparkle.x, sparkle.y);
+                ctx.rotate(sparkle.rotation);
+                ctx.fillText("✨", 0, 0);
+                ctx.restore();
+                
+                // Física simplificada
+                sparkle.x += sparkle.velocityX;
+                sparkle.y += sparkle.velocityY;
+                sparkle.velocityY += 0.12;
+                sparkle.velocityX *= 0.998;
+                sparkle.rotation += sparkle.rotationSpeed;
+                sparkle.opacity -= 0.015;
+                
+                if (sparkle.opacity <= 0 || sparkle.y > window.innerHeight + 50) {
+                    sparkles.splice(index, 1);
+                }
+            });
+        }
+
+        // Event listeners optimizados
+        let mouseX = null;
+        let mouseY = null;
+        let isMouseDown = false;
+        
+        heartCanvas.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        });
+        
+        heartCanvas.addEventListener('mouseleave', () => {
+            mouseX = null;
+            mouseY = null;
+        });
+        
+        heartCanvas.addEventListener('click', (e) => {
+            showMessage(e.clientX, e.clientY);
+            createSparkles(e.clientX, e.clientY);
+        });
+
+        function showMessage(x, y) {
+            message.style.left = x + 'px';
+            message.style.top = y + 'px';
+            message.style.transform = 'translate(-50%, -50%)';
+            message.style.display = "block";
+            setTimeout(() => {
+                message.style.display = "none";
+            }, 1500);
+        }
+
+        function createSparkles(x, y) {
+            // Limitar número de sparkles
+            const sparkleCount = Math.min(MAX_SPARKLES, 8);
+            
+            for (let i = 0; i < sparkleCount; i++) {
+                if (sparkles.length >= MAX_SPARKLES) break;
+                
+                const angle = (Math.PI * 2 * i) / sparkleCount + Math.random() * 0.3;
+                const velocity = 2 + Math.random() * 3;
+                
+                sparkles.push({
+                    x: x,
+                    y: y,
+                    size: 12 + Math.random() * 6,
+                    velocityX: Math.cos(angle) * velocity,
+                    velocityY: Math.sin(angle) * velocity - Math.random() * 1.5,
+                    rotation: Math.random() * Math.PI * 2,
+                    rotationSpeed: (Math.random() - 0.5) * 0.15,
+                    opacity: 1
+                });
+            }
+        }
+
+        // Loop de animación con control de FPS
+        let startTime = Date.now();
+        let lastFrame = 0;
+        const targetFPS = 60;
+        const frameInterval = 1000 / targetFPS;
+        
+        function animate(currentTime) {
+            if (currentTime - lastFrame >= frameInterval) {
+                drawBackground();
+                drawHeart(mouseX, mouseY, currentTime - startTime);
+                lastFrame = currentTime;
+            }
+            animationId = requestAnimationFrame(animate);
+        }
+
+        // Optimización para dispositivos móviles
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        if (isMobile) {
+            // Reducir aún más las partículas en móviles
+            MAX_PARTICLES = 40;
+            MAX_FALLING_DOTS = 30;
+            MAX_SPARKLES = 5;
+        }
+
+        // Pausar animación cuando la pestaña no está activa
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                if (animationId) {
+                    cancelAnimationFrame(animationId);
+                }
+            } else {
+                animate();
+            }
+        });
+
+        // Inicializar
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        animate();
+    </script>
+</body>
+</html>
